@@ -1,0 +1,14 @@
+#include "swis.h"
+#include "rout:SWIm.h"
+
+void reset(void)
+{
+  _swix(OS_Reset, 0);
+}
+
+int main(void)
+{
+    SWIM_EXPECT(OS_Reset, 0, 0);
+    reset();
+    SWIM_ASSERT();
+}

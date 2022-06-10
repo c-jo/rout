@@ -1,0 +1,2 @@
+Set rout$Dir <Obey$Dir>
+Set rout$Path <rout$Dir>.

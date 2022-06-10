@@ -1,0 +1,31 @@
+#ifndef ROUT_SWIM_H
+#define ROUT_SWIM_H
+
+#include "kernel.h"
+
+/* Used to set the expectations for the next swi call. Store incoming regs
+ * in *in (or ignored if NULL), return registers from *out (all 0s if NULL) or
+ * return / generate error *error.
+ */
+
+void swim_expect(int line, int swi_no, _kernel_swi_regs *in, _kernel_swi_regs* out);
+
+
+void swim_error(int line, int swi_no, _kernel_swi_regs *in, _kernel_oserror *error);
+
+/* Check all the SWIs we expected to be called were. */
+void swim_assert(int line);
+
+#define SWIM_EXPECT(s, ri, ro) { swim_expect(__LINE__, s, ri, ro); }
+#define SWIM_ERROR(s, ri, e) { swim_error(__LINE__, s, ri, e); }
+#define SWIM_ASSERT() { swim_assert(__LINE__); }
+
+
+/* Functions to replace _swi/_swix */
+extern int _swim_swi(int swi_no, unsigned int, ...);
+extern _kernel_oserror *_swim_swix(int swi_no, unsigned int, ...);
+
+#define _swix _swim_swix
+#define _swi  _swim_swi
+
+#endif

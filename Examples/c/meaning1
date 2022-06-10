@@ -1,0 +1,12 @@
+#include "rout:Test.h"
+
+int meaning(void)
+{
+    return 0;
+}
+
+int main(void)
+{
+    CHECK_EQ(meaning(), 42);
+    return 0;
+}

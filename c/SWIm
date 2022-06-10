@@ -1,0 +1,142 @@
+#include "SWIM.h"
+#include "swis.h"
+
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <assert.h>
+
+#define MAX_EXPECTATIONS 64
+
+#define CHECK(cond, msg) { if (!(cond)) \
+   { puts(msg); exit(1); } }
+#define CHECK1(cond, fmt, arg) { if (!(cond)) \
+   { printf(fmt, arg); puts(""); exit(1); } }
+#define CHECK2(cond, fmt, arg1, arg2) { if (!(cond)) \
+   { printf(fmt, arg1, arg2); puts(""); exit(1); } }
+#define CHECK3(cond, fmt, arg1, arg2, arg3) { if (!(cond)) \
+   { printf(fmt, arg1, arg2, arg3); puts(""); exit(1); } }
+#define CHECK4(cond, fmt, arg1, arg2, arg3, arg4) { if (!(cond)) \
+   { printf(fmt, arg1, arg2, arg3, arg4); puts(""); exit(1); } }
+#define CHECK5(cond, fmt, arg1, arg2, arg3, arg4,arg5) { if (!(cond)) \
+   { printf(fmt, arg1, arg2, arg3, arg4, arg5); puts(""); exit(1); } }
+struct {
+    int line;
+    int swi_no;
+    int flags;
+    _kernel_swi_regs in, out;
+    _kernel_oserror error;
+} expectation[MAX_EXPECTATIONS];
+
+#define FLAG_IN  (1<<0)
+#define FLAG_OUT (1<<1)
+#define FLAG_ERR (1<<2)
+
+int count = 0;
+int call  = 0;
+
+void swim_expect(int line, int swi_no,
+                 _kernel_swi_regs *in, _kernel_swi_regs* out)
+{
+    CHECK(count < MAX_EXPECTATIONS, "Too many expectations");
+    expectation[count].line   = line;
+    expectation[count].swi_no = swi_no;
+    expectation[count].flags  = 0;
+    if (in)
+    {
+        expectation[count].in = *in;
+        expectation[count].flags |= FLAG_IN;;
+    }
+    if (out)
+    {
+        expectation[count].out = *out;
+        expectation[count].flags |= FLAG_OUT;
+    }
+     ++count;
+}
+
+void swim_error(int line, int swi_no,
+                _kernel_swi_regs *in, _kernel_oserror* error)
+{
+    CHECK(count < MAX_EXPECTATIONS, "Too many expectations");
+    expectation[count].line   = line;
+    expectation[count].swi_no = swi_no;
+    expectation[count].flags  = FLAG_ERR;
+    expectation[count].error  = *error;
+    if (in)
+    {
+        expectation[count].in = *in;
+        expectation[count].flags |= FLAG_IN;;
+    }
+    ++count;
+}
+
+int _swim_swi(int swi_no, unsigned int regs, ...)
+{
+    puts("swim: _swi not supported.");
+    exit(1);
+    return 0;
+}
+
+_kernel_oserror *_swim_swix(int swi_no, unsigned int regs, ...)
+{
+    int r;
+    va_list ap;
+    CHECK1(call < count, "Unexpected SWI (&%x) called.", swi_no);
+    CHECK3(swi_no == expectation[call].swi_no,
+                     "%d: SWI &%x called, expeted &%x",
+                     expectation[call].line, swi_no, expectation[call].swi_no);
+
+    va_start(ap, regs);
+
+    for (r=0;r<10;++r)
+    {
+        if (regs & _IN(r)) {
+            unsigned v = va_arg(ap, unsigned);
+            if (expectation[call].flags & FLAG_IN)
+            {
+                unsigned x = expectation[call].in.r[r];
+                CHECK5(v == x,
+                       "%d: SWI %x R%d: Got %x, expected %x",
+                       expectation[call].line,
+                       expectation[call].swi_no, r, v, x);
+            }
+        }
+    }
+
+    for (r=0;r<10;++r)
+    {
+        if (regs & _OUT(r)) {
+
+            unsigned *t = va_arg(ap, unsigned*);
+            if (expectation[call].flags & FLAG_OUT)
+            {
+                *t = expectation[call].out.r[r];
+            }
+        }
+    }
+
+    va_end(ap);
+    if (expectation[call].flags & FLAG_ERR)
+        return &expectation[call++].error;
+    else
+        ++call;
+    return NULL;
+}
+
+void swim_assert(int line)
+{
+    if (call < count)
+    {
+        char list[512] = {0};
+        int  i;
+
+        for (i=call; i<count; ++i)
+            sprintf(list+strlen(list), " &%x", expectation[i].swi_no);
+
+        printf("%d: SWIs not called:%s (%d)\n", line, list, count-call);
+        exit(1);
+    }
+    call = count = 0;
+}
