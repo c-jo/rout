@@ -48,4 +48,4 @@ The code you want to test will need #include SWIm.h when it's being built to tes
 #include "rout:SWIm.h"
 #endif
 
-In order to use SWIm, you will need to link with rout (-Lrout:rout)
+In order to use SWIm, you will need to link with rout (rout:o.rout)
